@@ -284,6 +284,14 @@ var output *list.List
 var availableQueue *list.List
 var bufferQueue *list.List
 
+func printList(l *list.List) {
+	for e := l.Front(); e != nil; e = e.Next() {
+		fmt.Printf("%v ", e.Value.(string))
+	}
+
+	fmt.Printf("\n")
+}
+
 func main() {
 	input = getInput()
 
@@ -296,22 +304,10 @@ func main() {
 
 	availableQueue.PushBackList(getChildren(rootID))
 
+	printList(availableQueue)
+
 	for availableQueue.Len() > 0 {
-		next, nextElem := getNextAvailable()
-
-		inOutput := false
-		// check if it's in the output
-		for e3 := output.Front(); e3 != nil; e3 = e3.Next() {
-			if e3.Value.(string) == next {
-				inOutput = true
-				break
-			}
-		}
-
-		if inOutput == true {
-			availableQueue.Remove(nextElem)
-			continue
-		}
+		next, _ := getNextAvailable()
 
 		output.PushBack(next)
 
