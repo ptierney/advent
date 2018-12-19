@@ -209,12 +209,8 @@ func main() {
 		printState()
 	}
 
-	//fmt.Printf("Plants Sum: %v\n\n", sumPlants())
-
-	//printState()
-
-	//                         999999999414
-	//                        3450000002337
+	// Looking at the line where the repetition starts, and the value there, we
+	// get this equation
 	var answer uint64 = (uint64(50000000000)-uint64(102))*uint64(69) + uint64(9306)
 
 	fmt.Printf("Answer: %v\n", answer)
