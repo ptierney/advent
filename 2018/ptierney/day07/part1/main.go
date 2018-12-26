@@ -87,15 +87,13 @@ type Step struct {
 	Children      []*Step
 	Prerequisites []*Step
 
-	Done       bool
-	InProgress bool
+	Done bool
 }
 
 func NewStep(id string) *Step {
 	s := new(Step)
 	s.ID = id
 	s.Done = false
-	s.InProgress = false
 
 	s.Children = make([]*Step, 0)
 	s.Prerequisites = make([]*Step, 0)
@@ -121,87 +119,9 @@ func (s *Step) PrerequisitesAreDone() bool {
 	return true
 }
 
-func (s *Step) IsDoAble() bool {
-	return s.Done == false && s.InProgress == false
-}
-
-func (s *Step) GetWorkTime() int {
-	// ASCII value normalized to 1, plus 60 seconds
-	//return int(s.ID[0]) - 64 + 60
-
-	return int(s.ID[0]) - 64 + 60
-}
-
 var Steps []*Step
+
 var FinalOrder []*Step
-var ElfPool []*Elf
-
-// Elfs do work
-type Elf struct {
-	CurrentStep *Step
-
-	RemainingTime int
-
-	ID int
-}
-
-func NewElf(id int) *Elf {
-	e := new(Elf)
-
-	e.CurrentStep = nil
-
-	e.ID = id
-
-	return e
-}
-
-func (e *Elf) AssignTask(s *Step) {
-	e.CurrentStep = s
-
-	e.RemainingTime = s.GetWorkTime()
-
-	s.InProgress = true
-}
-
-func (e *Elf) IsOccupied() bool {
-	return e.CurrentStep != nil
-}
-
-func (e *Elf) TaskGlyph() string {
-	if e.IsOccupied() {
-		return e.CurrentStep.ID
-	} else {
-		return "."
-	}
-
-}
-
-func (e *Elf) Tick() {
-	//fmt.Printf("Elf %v is working on %v\n", e.ID, e.TaskGlyph())
-
-	if e.CurrentStep == nil {
-		return
-	}
-
-	e.RemainingTime -= 1
-
-	if e.RemainingTime > 0 {
-		return
-	}
-
-	FinalOrder = append(FinalOrder, e.CurrentStep)
-
-	e.CurrentStep.Done = true
-	e.CurrentStep.InProgress = false
-
-	e.CurrentStep = nil
-}
-
-func CreateElfPool() {
-	for i := 0; i < 5; i++ {
-		ElfPool = append(ElfPool, NewElf(i))
-	}
-}
 
 func printSteps() {
 	printStepList(Steps)
@@ -212,20 +132,6 @@ func printFinalOrder() {
 	printStepList(FinalOrder)
 }
 
-func FinalOrderString() string {
-	if len(FinalOrder) == 0 {
-		return " "
-	}
-
-	var s string = ""
-
-	for _, elem := range FinalOrder {
-		s = s + elem.ID
-	}
-
-	return s
-}
-
 func printStepList(sl []*Step) {
 	for _, s := range sl {
 		fmt.Printf("%v", s.ID)
@@ -234,11 +140,11 @@ func printStepList(sl []*Step) {
 	fmt.Printf("\n")
 }
 
-func getDoAbleRoots() []*Step {
+func getUndoneRoots() []*Step {
 	roots := make([]*Step, 0)
 
 	for _, s := range Steps {
-		if len(s.Prerequisites) == 0 && s.IsDoAble() {
+		if len(s.Prerequisites) == 0 && s.Done == false {
 			roots = append(roots, s)
 		}
 	}
@@ -247,7 +153,7 @@ func getDoAbleRoots() []*Step {
 }
 
 func getRoot() *Step {
-	possibleRoots := getDoAbleRoots()
+	possibleRoots := getUndoneRoots()
 
 	sort.Sort(ByStep(possibleRoots))
 
@@ -277,14 +183,14 @@ func calculateNextStep() *Step {
 
 	for _, s1 := range doneSteps {
 		for _, s2 := range s1.Children {
-			if s2.PrerequisitesAreDone() == true && s2.IsDoAble() {
+			if s2.PrerequisitesAreDone() == true && s2.Done == false {
 				possibleSteps[s2.ID] = s2
 			}
 		}
 	}
 
 	// the graph can have multiple "roots"
-	roots := getDoAbleRoots()
+	roots := getUndoneRoots()
 
 	for _, r := range roots {
 		possibleSteps[r.ID] = r
@@ -296,9 +202,8 @@ func calculateNextStep() *Step {
 		possibleStepsList = append(possibleStepsList, s)
 	}
 
-	// there are no possible next steps
-	if len(possibleStepsList) == 0 {
-		return nil
+	if len(possibleStepsList) == 0 && AllStepsAreDone() == false {
+		log.Fatal("Error calculating next steps")
 	}
 
 	sort.Sort(ByStep(possibleStepsList))
@@ -316,68 +221,14 @@ func AllStepsAreDone() bool {
 	return true
 }
 
-func AllElfsAreOccupied() bool {
-	for _, e := range ElfPool {
-		if e.IsOccupied() == false {
-			return false
-		}
-	}
-
-	return true
-}
-
-func AssignStepToElfPool(step *Step) {
-	if AllElfsAreOccupied() {
-		return
-	}
-
-	var workElf *Elf = nil
-
-	for _, e := range ElfPool {
-		if e.IsOccupied() == false {
-			workElf = e
-			break
-		}
-	}
-
-	workElf.AssignTask(step)
-}
-
-func TickElfs() {
-	for _, e := range ElfPool {
-		e.Tick()
-	}
-}
-
 func main() {
 	parseInput(getInput())
 
-	CreateElfPool()
-
-	var seconds int = 0
-
 	for AllStepsAreDone() == false {
+		s := calculateNextStep()
 
-		for AllElfsAreOccupied() == false {
-			s := calculateNextStep()
-
-			if s == nil {
-				break
-			}
-
-			AssignStepToElfPool(s)
-		}
-
-		// fmt.Printf("%v  %v  %v  %v\n", seconds,
-		// 	ElfPool[0].TaskGlyph(), ElfPool[1].TaskGlyph(),
-		// 	FinalOrderString())
-
-		TickElfs()
-
-		seconds++
+		doStep(s)
 	}
 
 	printFinalOrder()
-
-	fmt.Printf("Total Time: %v\n", seconds)
 }
