@@ -136,6 +136,20 @@ const (
 	CharacterType_elf    CharacterType = iota
 )
 
+// type PathTile struct {
+// 	ThisTile     Tile
+// 	PreviousTile Tile
+// }
+
+// func NewPathTile(thisTile Tile, previousTile Tile) *PathTile {
+// 	pTile := new(PathTile)
+
+// 	pTile.ThisTile = thisTile
+// 	pTile.PreviousTile = previousTile
+
+// 	return pTile
+// }
+
 type Tile struct {
 	Type TileType
 
@@ -215,12 +229,23 @@ func (t *Tile) AliveCharacterIsOnTile() bool {
 }
 
 func (t *Tile) SurroundingTiles() []*Tile {
-	tiles := make([]*Tile, 4)
+	tiles := make([]*Tile, 0)
 
-	tiles[0] = t.NorthTile
-	tiles[1] = t.SouthTile
-	tiles[2] = t.EastTile
-	tiles[3] = t.WestTile
+	if t.NorthTile != nil {
+		tiles = append(tiles, t.NorthTile)
+	}
+
+	if t.SouthTile != nil {
+		tiles = append(tiles, t.SouthTile)
+	}
+
+	if t.EastTile != nil {
+		tiles = append(tiles, t.EastTile)
+	}
+
+	if t.WestTile != nil {
+		tiles = append(tiles, t.WestTile)
+	}
 
 	return tiles
 }
@@ -250,9 +275,58 @@ func (t *Tile) TileIsInTileSlice(ts []*Tile) bool {
 }
 
 func (t *Tile) ShortestDistanceToTile(otherTile *Tile) int {
-	// returns the number of steps to the other tile, along the/a shortest route
+	if otherTile == nil {
+		log.Fatal("Cannot compute distance with nil")
+	}
 
-	return 0
+	previousTileMap := make(map[string]*Tile)
+
+	tileStack := list.New()
+
+	tileStack.PushBack(t)
+
+	for tileStack.Len() > 0 {
+		tileElem := tileStack.Front()
+		tile := tileElem.Value.(*Tile)
+		tileStack.Remove(tileElem)
+
+		nextTiles := tile.SurroundingOpenTiles()
+
+		for e := nextTiles.Front(); e != nil; e = e.Next() {
+			nt := e.Value.(*Tile)
+
+			if _, contains := previousTileMap[nt.HashKey()]; contains {
+				continue
+			}
+
+			previousTileMap[nt.HashKey()] = tile
+
+			tileStack.PushBack(nt)
+		}
+	}
+
+	path := list.New()
+
+	current := otherTile
+
+	for {
+		if current.HashKey() == t.HashKey() {
+			break
+		}
+
+		path.PushFront(current)
+
+		prev, contains := previousTileMap[current.HashKey()]
+
+		if contains {
+			current = prev
+		} else {
+			// in this case there is no path between the two tiles
+			return 2147483647
+		}
+	}
+
+	return path.Len()
 }
 
 func ResetTileDistances() {
@@ -318,15 +392,16 @@ func NewCharacter(x int, y int, inputChar rune) *Character {
 	character.Y = y
 
 	character.HitPoints = 200
-	character.AttackPower = 3
 
 	character.Glyph = inputChar
 
 	switch inputChar {
 	case 'G':
 		character.Type = CharacterType_goblin
+		character.AttackPower = 3
 	case 'E':
 		character.Type = CharacterType_elf
+		character.AttackPower = ElfAttackPower
 	default:
 		log.Fatal("Unexpected character rune")
 	}
@@ -362,10 +437,7 @@ func (c *Character) SurroundingTiles() []*Tile {
 
 	thisTile := Tiles[c.X][c.Y]
 
-	tiles[0] = thisTile.NorthTile
-	tiles[1] = thisTile.SouthTile
-	tiles[2] = thisTile.EastTile
-	tiles[3] = thisTile.WestTile
+	return thisTile.SurroundingTiles()
 
 	return tiles
 }
@@ -377,26 +449,20 @@ func (c *Character) SetDistancesForTiles() {
 	currentTile := c.CurrentTile()
 
 	tileStack := list.New()
-	reachableTiles := list.New()
 	evaluatedTiles := make(map[string]*Tile)
-	evaluatedTiles[currentTile.HashKey()] = currentTile
 
-	sot := currentTile.SurroundingOpenTiles()
-
-	for e := sot.Front(); e != nil; e = e.Next() {
-		e.Value.(*Tile).Distance = 1
-	}
-
-	tileStack.PushBackList(currentTile.SurroundingOpenTiles())
+	tileStack.PushBack(currentTile)
+	currentTile.Distance = 0
 
 	for tileStack.Len() > 0 {
+
+		//fmt.Printf("TileStack length: %v\n", tileStack.Len())
+		//fmt.Printf("EvaluatedTiles length: %v\n", len(evaluatedTiles))
+
 		// evaluate all
 		tileElem := tileStack.Front()
 		tile := tileElem.Value.(*Tile)
 		tileStack.Remove(tileElem)
-		evaluatedTiles[tile.HashKey()] = tile
-
-		reachableTiles.PushBack(tile)
 
 		nextTiles := tile.SurroundingOpenTiles()
 
@@ -410,6 +476,8 @@ func (c *Character) SetDistancesForTiles() {
 			nt.Distance = tile.Distance + 1
 
 			tileStack.PushBack(nt)
+
+			evaluatedTiles[nt.HashKey()] = nt
 		}
 	}
 }
@@ -500,7 +568,7 @@ func (c *Character) GetMoveTargetTile() *Tile {
 			closestReachable = append(closestReachable, t)
 		} else if t.Distance < closestDist {
 			closestReachable = make([]*Tile, 1)
-			closestReachable[1] = t
+			closestReachable[0] = t
 			closestDist = t.Distance
 		}
 	}
@@ -508,11 +576,19 @@ func (c *Character) GetMoveTargetTile() *Tile {
 	return FirstTileInReadingOrder(closestReachable)
 }
 
+func (c *Character) IsInRangeToAttack() bool {
+	return len(c.SurroundingTilesWithEnemies()) > 0
+}
+
 func (c *Character) Tick() {
 	// move is possible
 	currentTile := c.CurrentTile()
 
-	targetTile := c.GetMoveTargetTile()
+	var targetTile *Tile = nil
+
+	if c.IsInRangeToAttack() == false {
+		targetTile = c.GetMoveTargetTile()
+	}
 
 	if targetTile != nil {
 
@@ -534,7 +610,7 @@ func (c *Character) Tick() {
 			if dist == bestDist {
 				bestSurrounding = append(bestSurrounding, t)
 			} else if dist < bestDist {
-				bestSurrounding := make([]*Tile, 1)
+				bestSurrounding = make([]*Tile, 1)
 				bestSurrounding[0] = t
 				bestDist = dist
 			}
@@ -559,8 +635,26 @@ func (c *Character) Tick() {
 		return // turn is over
 	}
 
+	// select the enemy with the lowest hit points
+	lowestScore := enemyTiles[0].CharacterOnTile().HitPoints
+
+	lowestEnemyTiles := make([]*Tile, 1)
+	lowestEnemyTiles[0] = enemyTiles[0]
+
+	for _, enemyTile := range enemyTiles {
+		hp := enemyTile.CharacterOnTile().HitPoints
+
+		if hp == lowestScore {
+			lowestEnemyTiles = append(lowestEnemyTiles, enemyTile)
+		} else if hp < lowestScore {
+			lowestEnemyTiles = make([]*Tile, 1)
+			lowestEnemyTiles[0] = enemyTile
+			lowestScore = hp
+		}
+	}
+
 	// select one enemy in range by reading order
-	attackTile := FirstTileInReadingOrder(enemyTiles)
+	attackTile := FirstTileInReadingOrder(lowestEnemyTiles)
 
 	c.Attack(attackTile.CharacterOnTile())
 }
@@ -576,7 +670,7 @@ func (c *Character) CurrentTile() *Tile {
 func (c *Character) tileContainsEnemy(t *Tile) bool {
 	charOnTile := t.CharacterOnTile()
 
-	if char == nil {
+	if charOnTile == nil {
 		return false
 	}
 
@@ -625,7 +719,7 @@ var AliveCharacters *list.List
 
 var RoundCounter int
 
-func characterAtPosition(x int, y int) *Character {
+func CharacterAtPosition(x int, y int) *Character {
 	for _, c := range Characters {
 		if c.IsAlive() == false {
 			continue
@@ -640,9 +734,13 @@ func characterAtPosition(x int, y int) *Character {
 }
 
 func DisplayTiles() {
+	fmt.Printf("Round: %v\n", RoundCounter)
+
+	return
+
 	for y := 0; y < len(Tiles[0]); y++ {
 		for x := 0; x < len(Tiles); x++ {
-			c := characterAtPosition(x, y)
+			c := CharacterAtPosition(x, y)
 			var printChar rune
 
 			if c != nil {
@@ -662,7 +760,7 @@ func OrderedCharactersForRound() *list.List {
 
 	for y := 0; y < len(Tiles[0]); y++ {
 		for x := 0; x < len(Tiles); x++ {
-			c := characterAtPosition(x, y)
+			c := CharacterAtPosition(x, y)
 
 			if c != nil {
 				charList.PushBack(c)
@@ -673,7 +771,11 @@ func OrderedCharactersForRound() *list.List {
 	return charList
 }
 
+var OneSideHasOneFlag bool = false
+
 func OneSideHasWon() bool {
+	//	return OneSideHasOneFlag
+
 	if AliveCharacters.Len() == 0 {
 		log.Fatal("No side has won, everyone is dead")
 	}
@@ -690,53 +792,97 @@ func OneSideHasWon() bool {
 }
 
 func findAndRemoveDeadCharacters() *Character {
-	// loop through the alive characters, finding a dead one. Return it after
-	// removing it
+	var deadCharacterElem *list.Element = nil
 
-	return nil
+	for e := AliveCharacters.Front(); e != nil; e = e.Next() {
+		c := e.Value.(*Character)
+
+		if c.IsAlive() == false {
+			deadCharacterElem = e
+			break
+		}
+	}
+
+	if deadCharacterElem == nil {
+		return nil
+	}
+
+	deadCharacter := deadCharacterElem.Value.(*Character)
+
+	AliveCharacters.Remove(deadCharacterElem)
+
+	return deadCharacter
 }
 
 // input is an in-progress list search. It remove the character from the list
 // if it is present (it may have already passed the character), and then
 // returns the new "Next" element, or nil if at the end of the list
 // removes the character from the in pogress list
-func removeCharacterFromInProgressList(c *Character, e *list.Element) *list.Element {
-	//
+// func removeCharacterFromInProgressList(c *Character, inProgress *list.Element) *list.Element {
+// 	var foundElement *list.Element = nil
 
-	return nil
-}
+// 	for e := inProgress; e != nil; e = e.Next() {
+// 		thisChar := e.Value.(*Character)
+
+// 		if thisChar == c {
+// 			foundElement = e
+// 			break
+// 		}
+// 	}
+
+// 	if foundElement != nil {
+
+// 	}
+
+// 	return nil
+// }
 
 func battleUntilComplete() {
-
-	RoundCounter = 0
-
-	return
+	// Display the initial condition
+	//DisplayTiles()
 
 	for {
+
 		charactersForRound := OrderedCharactersForRound()
 
-		for e := charactersForRound.Front(); e != nil; {
+		if OneSideHasWon() {
+			break
+		}
+
+		RoundCounter++
+
+		roundDeadChars := make(map[*Character]bool)
+
+		for e := charactersForRound.Front(); e != nil; e = e.Next() {
 			c := e.Value.(*Character)
+
+			if _, contains := roundDeadChars[c]; contains {
+				continue
+			}
 
 			c.Tick()
 
 			deadChar := findAndRemoveDeadCharacters()
 
 			if deadChar != nil {
-				e = removeCharacterFromInProgressList(deadChar, e)
+				roundDeadChars[deadChar] = true
+
+				if deadChar.Type == CharacterType_elf {
+					AnElfHasDied = true
+				}
 			}
 
 			if OneSideHasWon() {
+				// only count full rounds
+				if e.Next() != nil {
+					RoundCounter--
+				}
+
 				break
 			}
 		}
 
-		// only count FULL rounds
-		RoundCounter++
-
-		if OneSideHasWon() {
-			break
-		}
+		//DisplayTiles()
 	}
 }
 
@@ -751,17 +897,39 @@ func scoreForAliveCharacters() int {
 }
 
 func GetBattleOutcome(inputFileName string) (int, int, int) {
+	RoundCounter = 0
+	AnElfHasDied = false
+
 	parseInput(getInput(inputFileName))
 
-	DisplayTiles()
+	//DisplayTiles()
 
 	battleUntilComplete()
 
 	return RoundCounter, scoreForAliveCharacters(), RoundCounter * scoreForAliveCharacters()
 }
 
-func main() {
-	r, hp, outcome := GetBattleOutcome("input")
+func PrintAliveCharacterScores() {
+	for e := AliveCharacters.Front(); e != nil; e = e.Next() {
+		c := e.Value.(*Character)
 
-	fmt.Printf("Outcome: %v * %v = %v", r, hp, outcome)
+		fmt.Printf("%v at %v : %v\n", string(c.Glyph), c.CurrentTile().HashKey(), c.HitPoints)
+	}
+}
+
+var ElfAttackPower int = 3
+var AnElfHasDied bool = false
+
+func main() {
+	for {
+		ElfAttackPower++
+		r, hp, outcome := GetBattleOutcome("input")
+
+		if AnElfHasDied == false {
+			fmt.Printf("Outcome: %v * %v = %v\n", r, hp, outcome)
+			break
+		} else {
+			fmt.Printf("An elf died at attack power %v\n", ElfAttackPower)
+		}
+	}
 }
