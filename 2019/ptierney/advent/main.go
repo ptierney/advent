@@ -1,11 +1,9 @@
 package main
 
 import (
-	"advent/day00"
-
-	"fmt"
+	"advent/dayT"
 )
 
 func main() {
-	fmt.Printf("The sum is: %v\n", day00.SumNumbers())
+	dayT.SolveProblem()
 }
