@@ -8,8 +8,8 @@ import (
 
 var rootDir string = "/home/patrick/dev/advent/2019/ptierney/advent"
 
-func GetInput(dir string) []string {
-	file, err := os.Open(rootDir + "/" + dir + "/input")
+func GetInput(subPath string) []string {
+	file, err := os.Open(rootDir + "/" + subPath)
 
 	if err != nil {
 		log.Fatal(err)

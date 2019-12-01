@@ -7,8 +7,27 @@ import (
 	"strconv"
 )
 
+func getFuelAndSubFuel(moduleMass int) int {
+	moduleFuel := moduleMass/3 - 2
+
+	sum := moduleFuel
+
+	for {
+		fuelFuel := moduleFuel/3 - 2
+
+		if fuelFuel < 1 {
+			break
+		}
+
+		sum += fuelFuel
+		moduleFuel = fuelFuel
+	}
+
+	return sum
+}
+
 func SolveProblem() {
-	input := common.GetInput("day01")
+	input := common.GetInput("day01/input")
 
 	var sum int = 0
 
@@ -19,20 +38,7 @@ func SolveProblem() {
 			panic(err)
 		}
 
-		moduleFuel := moduleMass/3 - 2
-
-		sum += moduleFuel
-
-		for {
-			fuelFuel := moduleFuel/3 - 2
-
-			if fuelFuel < 1 {
-				break
-			}
-
-			sum += fuelFuel
-			moduleFuel = fuelFuel
-		}
+		sum += getFuelAndSubFuel(moduleMass)
 	}
 
 	fmt.Printf("Sum: %v\n", sum)
