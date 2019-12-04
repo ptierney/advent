@@ -2,19 +2,16 @@ package main
 
 import (
 	"advent/common"
-	"advent/day02"
+	"advent/day03"
 
 	"fmt"
 )
 
 func main() {
-	input := common.GetInput("day02/input")
-	day02.LoadProgram(input)
-	day02.SetProgramAlarm()
-	part1 := day02.SolveProblem()
+	input := common.GetInput("day03/input")
+	part1 := day03.SolveProblem(input)
 	fmt.Printf("Part 1: %v\n", part1)
 
-	part2 := day02.FindNounVerb()
-
-	fmt.Printf("NounVerb: %v\n", part2)
+	part2 := day03.SolvePart2(input)
+	fmt.Printf("Part 2: %v\n", part2)
 }
