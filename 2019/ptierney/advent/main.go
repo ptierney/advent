@@ -1,12 +1,11 @@
 package main
 
 import (
-	//"advent/common"
-	"advent/day05"
+	"advent/day09"
 )
 
 func main() {
-	//input := common.GetInput("day03/input")
-	day05.SolvePart1()
-	//day04.SolvePart2()
+	day09.GetBOOSTKeycode()
+	day09.GetCoords()
+
 }
