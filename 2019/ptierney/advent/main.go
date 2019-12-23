@@ -1,11 +1,10 @@
 package main
 
 import (
-	"advent/day09"
+	"advent/day07"
 )
 
 func main() {
-	day09.GetBOOSTKeycode()
-	day09.GetCoords()
-
+	day07.Part1()
+	day07.Part2()
 }
