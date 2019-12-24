@@ -15,3 +15,13 @@ func TestDirectAndIndirectInputs(t *testing.T) {
 		t.Errorf("Expected 42 orbits, received %v", orbits)
 	}
 }
+
+func TestMinimumTransfers(t *testing.T) {
+	input := common.GetInput("day06/testinput2")
+
+	transfers := GetMinimumTransfers(input)
+
+	if transfers != 4 {
+		t.Errorf("Expected 4 transfers, received %v", transfers)
+	}
+}
