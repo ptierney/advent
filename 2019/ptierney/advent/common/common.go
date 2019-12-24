@@ -80,3 +80,13 @@ func Sum(values ...int) int {
 	}
 	return sum
 }
+
+func StringArrayFromString(s string) []string {
+	arr := make([]string, 0)
+
+	for _, rune := range s {
+		arr = append(arr, string(rune))
+	}
+
+	return arr
+}
