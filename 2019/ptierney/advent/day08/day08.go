@@ -32,6 +32,29 @@ func NewPicture() *Picture {
 	return p
 }
 
+func CharFromPixel(p int) string {
+	if p == 1 || p == 2 {
+		return "#"
+	}
+
+	if p == 0 {
+		return "."
+	}
+
+	panic("Incorrect Pixel")
+	return " "
+}
+
+func (l *Layer) Print() {
+	for i := 0; i < PictureHeight; i++ {
+		for j := 0; j < PictureWidth; j++ {
+			fmt.Printf("%v", CharFromPixel(l.Pixels[j][i]))
+		}
+
+		fmt.Printf("\n")
+	}
+}
+
 func (l *Layer) NumZeros() int {
 	return l.NumValues(0)
 }
@@ -59,6 +82,18 @@ func Part1() {
 	c := GetChecksum(input)
 
 	fmt.Printf("Checksum: %v\n", c)
+}
+
+func Part2() {
+	input := common.GetInput("day08/input")
+
+	p := PictureFromString(input[0])
+
+	merged := MergeLayers(p.Layers)
+
+	fmt.Printf("\n\n")
+
+	merged.Print()
 }
 
 func GetChecksum(input []string) int {
@@ -119,4 +154,30 @@ func PictureFromString(input string) *Picture {
 	}
 
 	return picture
+}
+
+func MergeLayers(layers []*Layer) *Layer {
+	merged := NewLayer(PictureWidth, PictureHeight)
+
+	for i := 0; i < PictureWidth; i++ {
+		for j := 0; j < PictureHeight; j++ {
+			merged.Pixels[i][j] = 2
+		}
+	}
+
+	for _, layer := range layers {
+		for i := 0; i < PictureWidth; i++ {
+			for j := 0; j < PictureHeight; j++ {
+
+				// it's already set, no need to continue
+				if merged.Pixels[i][j] != 2 {
+					continue
+				}
+
+				merged.Pixels[i][j] = layer.Pixels[i][j]
+			}
+		}
+	}
+
+	return merged
 }
