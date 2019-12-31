@@ -143,7 +143,7 @@ func Part2() {
 		ClearScreen()
 		PrintTiles()
 
-		//time.Sleep(150 * time.Millisecond)
+		//gtime.Sleep(150 * time.Millisecond)
 	}
 }
 
